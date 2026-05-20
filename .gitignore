@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+**/dist/
+shared/dist/
+frontend/dist/
+backend/dist/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs & coverage
+*.log
+coverage/
+**/coverage/
+
+# OS & editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Uploads & local data
+backend/uploads/
+
+# Prisma
+*.db
+*.db-journal

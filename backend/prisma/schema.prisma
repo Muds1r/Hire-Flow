@@ -1,0 +1,319 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CANDIDATE
+  HR
+  EVALUATOR
+}
+
+/// Application hiring pipeline.
+enum ApplicationStatus {
+  APPLIED
+  CV_ANALYZED
+  TEST_READY
+  TEST_SENT
+  TEST_STARTED
+  TEST_SUBMITTED
+  GRADED
+  UNDER_REVIEW
+  INTERVIEW
+  REJECTED
+  HIRED
+}
+
+/// Background CV/JD AI; apply returns before completion.
+enum AiProcessingStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+/// Evaluator assignment lifecycle.
+enum ApplicationEvaluatorStatus {
+  PENDING
+  IN_REVIEW
+  COMPLETED
+}
+
+/// Test lifecycle for an attempt. DRAFT = HR-only before candidate sees SENT.
+enum TestStatus {
+  DRAFT
+  SENT
+  IN_PROGRESS
+  SUBMITTED
+  AUTO_SUBMITTED
+  GRADED
+}
+
+/// Bank tier targets per skill (totals align with BANK_MAX_PER_SKILL in app).
+enum BankDifficultyTier {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+/// HR-visible progress while job question bank is prepared after publish.
+enum AssessmentBankPrepPhase {
+  NOT_STARTED
+  FILLING_QUESTIONS
+  READY
+  FAILED
+}
+
+/// Evaluator-selected difficulty profile per assessment section (set at publish).
+/// Values must match `types/test-intensity.ts` / `TEST_INTENSITY_LEVELS`.
+enum TestIntensityLevel {
+  INTERN_ASSOCIATE
+  SOFTWARE_ENGINEER
+  SENIOR_DEVELOPER
+}
+
+/// Why an application landed in REJECTED (null if not rejected or legacy rows).
+enum ApplicationRejectionReason {
+  JOB_CLOSED
+  HR_MANUAL
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  name         String?
+  /// HR can deactivate evaluators without deleting history on jobs/applications.
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  jobsCreated         Job[]              @relation("JobCreator")
+  applications Application[]
+
+  evaluatorAssignments ApplicationEvaluator[] @relation("EvaluatorOnApplication")
+  assignmentsCreated     ApplicationEvaluator[] @relation("AssignmentCreatedByHr")
+  evaluatorPosts         EvaluatorPost[]
+  jobEvaluatorAssignments JobEvaluator[] @relation("EvaluatorOnJob")
+  jobEvaluatorAssignmentsCreated JobEvaluator[] @relation("JobEvaluatorAssignedByHr")
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  /// Set when HR publishes the job (bank prep + candidate visibility).
+  publishedAt DateTime?
+  /// When evaluator submitted assessment plan to HR (before HR publish).
+  evaluatorConfigSubmittedAt DateTime?
+  /// Legacy flat titles; mirrored from `assessmentSectionConfig` on publish.
+  assessmentSectionTitles Json?
+  /// [{ title, intensity }] chosen by evaluator at publish.
+  assessmentSectionConfig Json?
+  /// True after bank prep finished for all section titles (tier quotas to cap).
+  assessmentBankReady       Boolean   @default(false)
+  assessmentBankPreparedAt DateTime?
+  assessmentBankPrepPhase  AssessmentBankPrepPhase @default(NOT_STARTED)
+  createdById String
+  createdBy   User     @relation("JobCreator", fields: [createdById], references: [id])
+  closedAt    DateTime?
+  /// When true, cron may delete uploaded CV files after cleanupScheduledAt.
+  cleanupEligible   Boolean   @default(false)
+  cleanupScheduledAt DateTime?
+  cvFilesCleanedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  applications Application[]
+  jobEvaluators  JobEvaluator[]
+}
+
+/// HR assigns evaluators when creating a draft JD; evaluator submits assessment config for HR to publish.
+model JobEvaluator {
+  id           String   @id @default(uuid())
+  jobId        String
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  evaluatorId  String
+  evaluator    User     @relation("EvaluatorOnJob", fields: [evaluatorId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User     @relation("JobEvaluatorAssignedByHr", fields: [assignedById], references: [id], onDelete: Restrict)
+  assignedAt   DateTime @default(now())
+
+  @@unique([jobId, evaluatorId])
+  @@index([evaluatorId])
+}
+
+model Application {
+  id          String              @id @default(uuid())
+  jobId       String
+  job         Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   User                @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  cvFileKey   String?
+  cvMimeType  String?
+  cvText      String?             @db.Text
+  cvParsed    Json?
+  matchResult Json?
+  status      ApplicationStatus   @default(APPLIED)
+  /// Set when status becomes REJECTED (job close vs HR decision).
+  rejectionReason ApplicationRejectionReason?
+  /// When HR released the application to assigned evaluators (evaluator portal).
+  sentToEvaluatorsAt DateTime?
+  aiStatus    AiProcessingStatus  @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  tests                  Test[]
+  evaluatorAssignments ApplicationEvaluator[]
+  evaluatorPosts       EvaluatorPost[]
+
+  @@unique([jobId, candidateId])
+}
+
+/// Evaluator follow-up notes per assessment section (visible to HR and evaluators).
+model EvaluatorPost {
+  id             String   @id @default(uuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  evaluatorId    String
+  evaluator      User     @relation(fields: [evaluatorId], references: [id], onDelete: Cascade)
+  /// Assessment section this note belongs to (matches TestSection.title).
+  sectionTitle   String
+  comment        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([applicationId])
+  @@index([applicationId, sectionTitle])
+  @@index([evaluatorId])
+}
+
+model ApplicationEvaluator {
+  id             String                     @id @default(uuid())
+  applicationId  String
+  application    Application                @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  evaluatorId    String
+  evaluator      User                       @relation("EvaluatorOnApplication", fields: [evaluatorId], references: [id], onDelete: Cascade)
+  assignedById   String
+  assignedBy     User                       @relation("AssignmentCreatedByHr", fields: [assignedById], references: [id], onDelete: Restrict)
+  status         ApplicationEvaluatorStatus @default(PENDING)
+  assignedAt     DateTime                   @default(now())
+  /// HR-only recommendation after evaluator submits review; does not change Application pipeline.
+  passForNextPhase  Boolean?
+  reviewSummary     String?                 @db.Text
+  reviewSubmittedAt DateTime?
+
+  @@unique([applicationId, evaluatorId])
+  @@index([evaluatorId])
+  @@index([applicationId])
+}
+
+model Test {
+  id                   String     @id @default(uuid())
+  applicationId        String
+  application          Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status               TestStatus @default(DRAFT)
+  questionSeconds      Int        @default(25)
+  violationCount       Int        @default(0)
+  violationThreshold   Int        @default(3)
+  startedAt            DateTime?
+  submittedAt          DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  testSections TestSection[]
+  answers      Answer[]
+  result       Result?
+}
+
+model TestSection {
+  id         String   @id @default(uuid())
+  testId     String
+  test       Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  title      String
+  orderIndex Int
+  createdAt  DateTime @default(now())
+
+  questions Question[]
+
+  @@unique([testId, orderIndex])
+}
+
+/// MCQ on a test attempt; may link to QuestionBankEntry when sourced from the pool.
+model Question {
+  id            String      @id @default(uuid())
+  testSectionId String
+  testSection   TestSection @relation(fields: [testSectionId], references: [id], onDelete: Cascade)
+  bankEntryId   String?
+  bankEntry     QuestionBankEntry? @relation(fields: [bankEntryId], references: [id], onDelete: SetNull)
+  question      String      @db.Text
+  options       Json
+  correctIndex  Int
+  explanation   String      @db.Text
+  difficulty    Int
+  category      String
+  orderIndex    Int
+  createdAt     DateTime    @default(now())
+
+  answers Answer[]
+
+  @@unique([testSectionId, orderIndex])
+}
+
+/// Reusable MCQ pool keyed by technology/topic label.
+model QuestionBankEntry {
+  id            String   @id @default(uuid())
+  technology    String
+  question      String   @db.Text
+  options       Json
+  correctIndex  Int
+  explanation   String   @db.Text
+  difficulty    Int
+  /// Bank tier for fixed 20/30/30/20 distribution (legacy difficulty kept for scoring heuristics).
+  tier          BankDifficultyTier @default(MEDIUM)
+  category      String
+  usageCount    Int      @default(0)
+  attemptCount  Int      @default(0)
+  successCount  Int      @default(0)
+  scoreSum      Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  questions Question[]
+
+  @@index([technology, tier])
+}
+
+model Answer {
+  id             String    @id @default(uuid())
+  testId         String
+  test           Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOption Int?
+  locked         Boolean   @default(false)
+  answeredAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([testId, questionId])
+}
+
+model Result {
+  id                 String   @id @default(uuid())
+  testId             String   @unique
+  test               Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  totalScore         Float
+  maxScore           Float
+  sectionScores      Json
+  perQuestion        Json
+  /// Aggregated analytics: section/difficulty breakdown, timing, comparisons snapshot.
+  analytics          Json?
+  timingStats        Json
+  violationsRecorded Int      @default(0)
+  createdAt          DateTime @default(now())
+}
