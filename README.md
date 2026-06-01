@@ -1,6 +1,6 @@
 # Futurenostics — Hire Flow
 
-Multi-role recruitment MVP: HR job pipeline, evaluator assessment plans, candidate timed MCQs, CV/JD AI screening, and secured CV viewing.
+Multi-role recruitment MVP: HR job pipeline, evaluator assessment plans, candidate timed MCQs, CV/JD AI screening, secured CV viewing, and optional transactional email (register, test sent, reject, interview).
 
 ## Documentation
 
@@ -16,7 +16,7 @@ Multi-role recruitment MVP: HR job pipeline, evaluator assessment plans, candida
 ```bash
 # Backend
 cd backend && cp .env.example .env
-# Set DATABASE_URL, JWT_SECRET, OPENAI_API_KEY
+# Set DATABASE_URL, JWT_SECRET, OPENAI_API_KEY; optional SMTP_* for email
 npm install && npx prisma migrate deploy && npm run db:seed
 npm run start:dev
 
@@ -26,7 +26,7 @@ cd frontend && npm install && npm run dev
 
 - API: http://localhost:3000/api (frontend dev proxies `/api` → backend for httpOnly cookies)  
 - App: http://localhost:5173  
-- Seed: `hr@example.com` / `evaluator@example.com` — password `Password123!`
+- After `npm run db:seed`, the terminal prints local dev account emails (dev-only; do not reuse seed passwords in production)
 - Email (optional): run [Mailhog](https://github.com/mailhog/MailHog), set `SMTP_HOST` / `SMTP_PORT` in `backend/.env` (see `.env.example`), view mail at http://localhost:8025
 
 ## Project structure

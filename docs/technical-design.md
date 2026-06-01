@@ -2,7 +2,7 @@
 
 **Product name (UI):** Futurenostics — Hire Flow  
 **Architecture:** Monorepo with separate `frontend/` (SPA) and `backend/` (REST API).  
-**Last updated:** May 2026 — reflects current MVP (local CV storage, secured CV API, HR CV/JD retry, evaluator queue search, no AI result summaries).
+**Last updated:** May 2026 — reflects current MVP (httpOnly JWT auth, optional transactional email, local CV storage, secured CV API, HR CV/JD retry, evaluator queue search, no AI result summaries).
 
 ---
 
@@ -34,6 +34,7 @@ flowchart TB
     AI[AiService]
     CV[CvService]
     Cron[Job Cleanup Cron]
+    Mail[MailService]
   end
 
   subgraph data [Persistence]
@@ -59,6 +60,9 @@ flowchart TB
   CV --> Apps
   Cron --> FS
   Cron --> PG
+  Auth --> Mail
+  Apps --> Mail
+  Tests --> Mail
 ```
 
 | Layer | Responsibility |
@@ -101,6 +105,7 @@ flowchart TB
 | `src/pages/` | Route-level screens |
 | `src/components/` | Shared UI (HR pipeline, assessment panels, CV button) |
 | `src/constants/assessmentTaxonomy.ts` | Skill taxonomy for evaluator plan picker (max **10** sections) |
+| `src/constants/testIntensity.ts` | `TestIntensityLevel` values + UI labels (keep in sync with backend + Prisma) |
 
 ### 3.2 Backend (`backend/`)
 
@@ -134,6 +139,7 @@ flowchart TB
 | `TestsModule` | Test generation, candidate take/submit, grading, HR/evaluator result view |
 | `AiModule` | OpenAI prompts and `AiService` (exported) |
 | `CvModule` | CV text extraction only |
+| `MailModule` | Welcome, test-sent, reject, and interview emails (`mail.service.ts`, `mail.templates.ts`) |
 | `PrismaModule` | Shared `PrismaService` |
 
 ### 3.3 AI layer (`backend/src/ai/`)
@@ -151,8 +157,8 @@ flowchart TB
 
 - No S3/object storage (CVs on local disk only)
 - No Redis / message queue (background AI runs in-process after apply)
-- No email service (portal-only)
 - No AI-generated hire/test summaries (removed; grading is rule-based)
+- No hire API (`HIRED` status reserved in schema/UI only)
 
 ---
 
@@ -177,7 +183,7 @@ AI-Test/
 | `backend/src/common/test-intensity.ts` | Enum values, `isTestIntensityLevel()` for API/grading |
 | `frontend/src/constants/testIntensity.ts` | Same values + UI option labels/hints |
 
-**Sync rule:** Prisma enum `TestIntensityLevel` in `schema.prisma` must match `TEST_INTENSITY_LEVELS` in both TS files.
+**Sync rule:** Prisma enum `TestIntensityLevel` in `schema.prisma` must match `TEST_INTENSITY_LEVELS` in both TS files. Intensity is stored on `Job.assessmentSectionConfig` as JSON strings; the Prisma enum documents allowed values (not a separate DB column per field).
 
 **Tests:** `frontend/src/constants/testIntensity.test.ts` · `backend/src/common/test-intensity.spec.ts`
 
@@ -200,7 +206,9 @@ AI-Test/
 
 JWT lives in cookie `hire_flow_access_token` (`backend/src/auth/auth-cookie.ts`), not in `localStorage`. Frontend persists **user** only in Zustand; `AuthBootstrap` calls `/auth/me` on load. Dev: Vite proxies `/api` → `localhost:3000` so cookies are same-origin. Routes use `RequireRole` for `/hr/*` and `/eval/*`.
 
-**Seed users** (`prisma/seed.ts`): `hr@example.com`, `evaluator@example.com`, `mern@example.com`, `ai@example.com` — password `Password123!`.
+`JwtStrategy.validate()` reloads the user from the database on each request and rejects deactivated accounts (`isActive === false`), even if the JWT has not expired.
+
+**Seed users** (`prisma/seed.ts`): creates local HR and evaluator accounts for development. Run `npm run db:seed`; emails are logged to the console. Do not document or reuse seed credentials in production.
 
 ---
 
@@ -280,6 +288,21 @@ Stored as JSON on `Job`:
 
 ---
 
+## 7.1 Email notifications (optional)
+
+When `SMTP_HOST` is set, `MailService` sends HTML + plain-text mail via nodemailer. Sends are **fire-and-forget** (logged on failure; HTTP handlers do not roll back if mail fails). If `SMTP_HOST` is omitted, all mail is skipped.
+
+| Event | When | Template |
+|-------|------|----------|
+| Welcome | Candidate `POST /auth/register` | Login link |
+| Test sent | HR `POST /tests/:id/hr/send` | Job title + applications link |
+| Rejected | HR `POST /applications/:id/hr-reject` | Job title |
+| Interview | HR `POST /applications/:id/hr-move-to-interview` | Job title + applications link |
+
+**Local dev:** [Mailhog](https://github.com/mailhog/MailHog) on `localhost:1025` (UI http://localhost:8025). **Production:** real SMTP + set `AUTH_COOKIE_SECURE=true` when the API is HTTPS-only.
+
+---
+
 ## 8. End-to-end business flow
 
 ### Phase A — Job setup (HR + evaluator)
@@ -326,7 +349,7 @@ sequenceDiagram
   AI->>DB: cvParsed, matchResult, CV_ANALYZED
 ```
 
-1. **Candidate** registers/logs in, applies on job detail with PDF/DOCX.
+1. **Candidate** registers (welcome email if SMTP configured), logs in, applies on job detail with PDF/DOCX.
 2. Server saves file, extracts text, creates application.
 3. If `OPENAI_API_KEY` set, background task runs `parseCv` then `matchJdToCv` against job description.
 4. **HR** sees JD vs CV match on application page (`CvMatchSummary`); opens file via secured CV endpoint.
@@ -334,7 +357,7 @@ sequenceDiagram
 ### Phase C — Test lifecycle (HR + candidate)
 
 1. **HR** on application page: **Generate test** — builds unique MCQs per section from **question bank** (same topics/intensity as plan, different questions per candidate). Test status `DRAFT`.
-2. **HR** **Send to candidate** — `POST /tests/:id/hr/send` → `SENT`; application moves toward `TEST_SENT`.
+2. **HR** **Send to candidate** — `POST /tests/:id/hr/send` → `SENT`; application moves toward `TEST_SENT`; candidate receives test-sent email if SMTP is configured.
 3. **Candidate** `/tests/:testId` — timed MCQ (`DEFAULT_QUESTION_SECONDS` = 25s per question), tab-violation counter, autosave answers (`PATCH /tests/:id/answers`), submit (`POST /tests/:id/submit`).
 4. Server **grades** deterministically (`grading.ts`, `result-analytics.ts`), writes `Result`, sets test `GRADED`, application `GRADED`.
 
@@ -343,7 +366,7 @@ sequenceDiagram
 1. **HR** assigns **application-level** evaluators (`POST /applications/:id/evaluators`).
 2. **HR** **Send to evaluators** — application `UNDER_REVIEW`; evaluators see package in portal **evaluation queue** on `/eval`.
 3. **Evaluators** search queue by candidate **name or email**, then `/eval/tests/:testId` — section scores, add/edit/delete **EvaluatorPost** notes per `sectionTitle`, submit advisory pass/not-pass (`POST .../evaluator-review`).
-4. **HR** rejects (`POST .../hr-reject`) or moves to interview (`POST .../hr-move-to-interview`). Evaluator pass flags are **non-binding**.
+4. **HR** rejects (`POST .../hr-reject`) or moves to interview (`POST .../hr-move-to-interview`); candidate receives reject or interview email if SMTP is configured. Evaluator pass flags are **non-binding**.
 
 ### Phase E — Job close + retention
 
@@ -477,14 +500,20 @@ Base URL: `http://localhost:3000/api` (dev). All JSON unless multipart noted.
 | `PORT` | API port (default 3000) |
 | `OPENAI_API_KEY` | Enables AI features |
 | `OPENAI_MODEL` | Chat model (default `gpt-4o-mini`) |
-| `FRONTEND_URL` | CORS origin |
+| `FRONTEND_URL` | CORS origin + links in email templates |
 | `UPLOAD_DIR` | CV storage root (default `./uploads`) |
+| `SMTP_HOST` | SMTP server (omit to disable mail) |
+| `SMTP_PORT` | SMTP port (default `1025` for Mailhog) |
+| `SMTP_SECURE` | `true` for TLS (typical on port 465) |
+| `SMTP_USER` / `SMTP_PASS` | Optional SMTP auth |
+| `MAIL_FROM` | From header (default `Hire Flow <noreply@hireflow.local>`) |
+| `AUTH_COOKIE_SECURE` | Set `true` in production (HTTPS) for httpOnly session cookie |
 
 ### Frontend (`frontend/.env`)
 
 | Variable | Purpose |
 |----------|---------|
-| `VITE_API_URL` | API base (default `http://localhost:3000/api`) |
+| `VITE_API_URL` | API base (default `/api` — uses Vite dev proxy; set full URL in production, e.g. `https://api.example.com/api`) |
 
 ---
 
@@ -523,19 +552,23 @@ npm run dev                # http://localhost:5173
 | OpenAI | API key on server | Secrets manager |
 | Single vs multi instance | Works on one VM | Shared storage or object store if scaled |
 | Migrations | `prisma migrate deploy` | Run in CI/CD before start |
+| Email | Mailhog locally | Production SMTP + `MAIL_FROM` |
+| Cookies | `AUTH_COOKIE_SECURE=false` locally | `true` when API is HTTPS |
+| Deploy config | None in repo (run backend + frontend on VM/PaaS) | Platform-specific (Vercel/Railway/etc.); CV disk needs persistence or object storage |
 
 ---
 
 ## 16. Out of scope / future work
 
 - Mark application `HIRED` from UI/API
-- Email notifications
-- Object storage for CVs
+- Object storage for CVs (S3/R2) instead of local `UPLOAD_DIR`
+- Automated sync check for `TestIntensityLevel` across Prisma + backend + frontend (manual discipline today)
+- CI/CD pipeline in repo (no `.github/workflows` currently)
 - AI-generated result summaries (removed intentionally)
 - Public static `/uploads` (removed; secured CV route only)
 - HR global candidate search (pipeline per job is the HR view)
 - Server-side evaluator queue search API (client-side filter on queue today)
-- JWT re-validation of `User.isActive` on every request (deactivated users with old tokens may still call API until expiry)
+- Apply-confirmation or job-close bulk rejection emails
 
 ---
 

@@ -19,13 +19,13 @@ Full technical detail (stack, data model, APIs, storage, diagrams): **[technical
 1. **HR** creates job + assigns **job** evaluators → draft.
 2. **Evaluator** picks skills from taxonomy (up to **10 sections**), sets **one overall test intensity**, submits plan → **first submission wins**.
 3. **HR** publishes job → **question bank** preparation (AI fills pool per section). Job is live for applications; tests wait until bank is **READY**.
-4. **Candidate** applies (CV saved to server disk + text/AI in Postgres) → background **CV parse + JD match**.
+4. **Candidate** registers (optional **welcome email** if SMTP is set), applies (CV saved to server disk + text/AI in Postgres) → background **CV parse + JD match**.
 4b. If CV/JD AI **FAILED**, **HR** can **Retry CV / JD analysis** on the application page (`POST …/retry-cv-ai`).
-5. **HR** generates test from bank → sends to candidate.
+5. **HR** generates test from bank → sends to candidate (**test-sent email** if SMTP is set).
 6. Candidate completes timed test → **auto-grade** → scores + analytics in DB.
 7. **HR** assigns **application** evaluators → **send to evaluators** → `UNDER_REVIEW`.
 8. **Evaluators** use **evaluation queue** on `/eval` (search by name/email), open review, per-section notes, advisory pass/not pass.
-9. **HR** **reject** or **move to interview**. `HIRED` reserved (no hire API yet).
+9. **HR** **reject** or **move to interview** (candidate **reject** or **interview email** if SMTP is set). `HIRED` reserved (no hire API yet).
 
 ---
 
@@ -69,9 +69,24 @@ View CV: secured API `GET /api/applications/:id/cv` (not a public folder).
 
 ---
 
+## Email (optional)
+
+Set `SMTP_*` in `backend/.env` (see `.env.example`). Local dev: Mailhog on port 1025, UI http://localhost:8025.
+
+| Trigger | Recipient |
+|---------|-----------|
+| Candidate register | Welcome + login link |
+| HR send test | Test ready + applications link |
+| HR reject | Rejection notice |
+| HR move to interview | Interview next steps |
+
+If `SMTP_HOST` is unset, mail is skipped; the API still succeeds.
+
+---
+
 ## Out of scope (for now)
 
 - Hire API / marking `HIRED` from UI
-- Email notifications
 - Cloud object storage for CVs
 - HR global candidate search (pipeline per job is sufficient)
+- CI/CD and production deploy config in repo

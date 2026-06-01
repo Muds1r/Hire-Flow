@@ -11,7 +11,8 @@ Recruitment & technical assessment API: NestJS, Prisma, PostgreSQL, OpenAI, loca
 | NestJS | HTTP API modules, DI, guards |
 | Prisma | ORM + migrations |
 | PostgreSQL | All relational data |
-| Passport JWT | Auth (`Authorization: Bearer`) |
+| Passport JWT | Session JWT in httpOnly cookie (`hire_flow_access_token`); optional `Authorization: Bearer` |
+| nodemailer | Transactional email when `SMTP_HOST` is set |
 | Multer | CV upload (memory → disk) |
 | pdf-parse / mammoth | CV text extraction |
 | OpenAI | CV parse, JD match, MCQ bank generation |
@@ -28,7 +29,7 @@ Recruitment & technical assessment API: NestJS, Prisma, PostgreSQL, OpenAI, loca
 
 **Email (Mailhog):** `docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog` — set `SMTP_*` in `.env`, inbox at http://localhost:8025. Sends on register, test sent, reject, move to interview.
 
-**Seed logins:** `hr@example.com`, `evaluator@example.com`, password `Password123!`.
+**Seed:** `npm run db:seed` creates local HR/evaluator users; emails are printed to the console (for development only).
 
 **CV files:** written to `UPLOAD_DIR` (default `./uploads/`). Served only via `GET /api/applications/:id/cv` (JWT + role check).
 
@@ -57,4 +58,10 @@ Recruitment & technical assessment API: NestJS, Prisma, PostgreSQL, OpenAI, loca
 | `OPENAI_API_KEY` | AI features |
 | `OPENAI_MODEL` | Default `gpt-4o-mini` |
 | `UPLOAD_DIR` | CV storage root |
-| `FRONTEND_URL` | CORS |
+| `FRONTEND_URL` | CORS + email links |
+| `SMTP_HOST` | SMTP server (omit to disable mail) |
+| `SMTP_PORT` | Default `1025` (Mailhog) |
+| `SMTP_SECURE` | `true` for TLS |
+| `SMTP_USER` / `SMTP_PASS` | Optional auth |
+| `MAIL_FROM` | From address |
+| `AUTH_COOKIE_SECURE` | `true` in production (HTTPS) |
