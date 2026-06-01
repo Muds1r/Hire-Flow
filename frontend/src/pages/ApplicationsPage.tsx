@@ -3,7 +3,7 @@ import { useApplicationsList } from '../features/applications/hooks';
 import { PageHeader } from '../components/ui/PageHeader';
 import { QueryPanel } from '../components/ui/QueryPanel';
 import { ApplicationListRow } from '../components/hr/ApplicationListRow';
-import { getApiErrorMessage } from '../services/http';
+import { getApiErrorMessage } from '../utils/apiError';
 
 export function ApplicationsPage() {
   const { data, isLoading, isError, error } = useApplicationsList({

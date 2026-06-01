@@ -1,7 +1,7 @@
 import type { Job } from '../../types';
 import { useHrPublishedJobs } from '../../features/jobs/hooks';
 import { DEFAULT_PAGE_SIZE } from '../../constants/pagination';
-import { getApiErrorMessage } from '../../services/http';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { ErrorCard } from '../ui/ErrorCard';
 import { HrJobListRow } from '../../features/jobs/HrJobListRow';
 import { ListSkeleton } from '../ui/ListSkeleton';

@@ -7,7 +7,7 @@ import { PipelineBoard } from '../components/hr/PipelineBoard';
 import { CollapsedApplicationSection } from '../components/hr/CollapsedApplicationSection';
 import { RejectedCandidatesSection } from '../components/hr/RejectedCandidatesSection';
 import { isPipelineTerminal } from '../utils/pipelineStage';
-import { getApiErrorMessage } from '../services/http';
+import { getApiErrorMessage } from '../utils/apiError';
 
 export function HrPipelinePage() {
   const [jobId, setJobId] = useState<string>('');

@@ -26,6 +26,7 @@ import { AiService, CvParsed } from '../ai/ai.service';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { SubmitEvaluatorReviewDto } from './dto/submit-evaluator-review.dto';
 import { TestsService } from '../tests/tests.service';
+import { MailService } from '../mail/mail.service';
 import { paginationArgs, toPaginatedResult } from '../common/pagination.util';
 import { DEFAULT_PAGE_SIZE } from '../common/dto/pagination-query.dto';
 
@@ -39,6 +40,7 @@ export class ApplicationsService {
     private ai: AiService,
     private config: ConfigService,
     private tests: TestsService,
+    private mail: MailService,
   ) {}
 
   private uploadRoot() {
@@ -740,7 +742,10 @@ export class ApplicationsService {
   async hrRejectApplication(applicationId: string, hrUserId: string) {
     const app = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { job: true },
+      include: {
+        job: true,
+        candidate: { select: { email: true, name: true } },
+      },
     });
     if (!app) {
       throw new NotFoundException('Application not found');
@@ -751,20 +756,35 @@ export class ApplicationsService {
     if (app.status === ApplicationStatus.REJECTED) {
       return app;
     }
-    return this.prisma.application.update({
+    const updated = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
         status: ApplicationStatus.REJECTED,
         rejectionReason: ApplicationRejectionReason.HR_MANUAL,
       },
+      include: {
+        job: true,
+        candidate: { select: { email: true, name: true } },
+      },
     });
+    if (updated.candidate?.email) {
+      this.mail.sendRejected(
+        updated.candidate.email,
+        updated.job.title,
+        updated.candidate.name,
+      );
+    }
+    return updated;
   }
 
   /** HR advances Under review → Interview (job owner only). */
   async hrMoveApplicationToInterview(applicationId: string, hrUserId: string) {
     const app = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { job: true },
+      include: {
+        job: true,
+        candidate: { select: { email: true, name: true } },
+      },
     });
     if (!app) {
       throw new NotFoundException('Application not found');
@@ -780,9 +800,21 @@ export class ApplicationsService {
         'Only applications under review can move to the interview phase.',
       );
     }
-    return this.prisma.application.update({
+    const updated = await this.prisma.application.update({
       where: { id: applicationId },
       data: { status: ApplicationStatus.INTERVIEW },
+      include: {
+        job: true,
+        candidate: { select: { email: true, name: true } },
+      },
     });
+    if (updated.candidate?.email) {
+      this.mail.sendInterview(
+        updated.candidate.email,
+        updated.job.title,
+        updated.candidate.name,
+      );
+    }
+    return updated;
   }
 }

@@ -8,9 +8,8 @@ export type AuthUser = {
   name?: string | null;
 };
 
-/** POST /auth/login | /auth/register response body */
-export type AuthTokenResponse = {
-  accessToken: string;
+/** POST /auth/login | /auth/register — JWT is httpOnly cookie, not in body */
+export type AuthSessionResponse = {
   user: AuthUser;
 };
 
@@ -49,7 +48,7 @@ export type EvaluatorPost = {
   evaluator: { id: string; email: string; name?: string | null };
 };
 
-import type { TestIntensityLevel } from '../../../types/test-intensity';
+import type { TestIntensityLevel } from '../constants/testIntensity';
 
 export type { TestIntensityLevel };
 

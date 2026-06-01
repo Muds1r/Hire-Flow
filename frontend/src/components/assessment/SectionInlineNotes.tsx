@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { EvaluatorPost } from '../../types';
-import { getApiErrorMessage } from '../../services/http';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export type SectionNotesConfig = {
   posts: EvaluatorPost[];

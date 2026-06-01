@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class AuthService {
   constructor(
     private users: UsersService,
     private jwt: JwtService,
+    private mail: MailService,
   ) {}
 
   async registerCandidate(email: string, password: string, name?: string) {
@@ -21,6 +23,7 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
     const user = await this.users.createCandidate({ email, password, name });
+    this.mail.sendWelcome(user.email, user.name);
     return this.issueTokens(user.id, user.email, user.role);
   }
 

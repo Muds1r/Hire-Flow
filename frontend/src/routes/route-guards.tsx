@@ -20,8 +20,15 @@ export function AuthShell({ children }: { children: ReactNode }) {
 }
 
 export function GuestLayout({ children }: { children: ReactNode }) {
-  const token = useAuthStore((s) => s.token);
-  if (token) {
+  const { user, ready } = useAuthStore();
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-500">
+        Loading…
+      </div>
+    );
+  }
+  if (user) {
     return <Navigate to="/" replace />;
   }
   return <AuthShell>{children}</AuthShell>;

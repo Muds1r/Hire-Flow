@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ModalShell } from './ui/ModalShell';
 import { useEvaluatorUsers, type EvaluatorUser } from '../features/jobs/hooks';
-import { getApiErrorMessage } from '../services/http';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = {
   open: boolean;

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../services/http';
+import { api } from '../../api/client';
 import type { Application } from '../../types';
 import { queryKeys } from '../../hooks/queryKeys';
 

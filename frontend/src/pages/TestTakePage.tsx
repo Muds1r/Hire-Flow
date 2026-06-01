@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../services/http';
+import { api } from '../api/client';
 import { QuestionStemCanvas } from '../components/QuestionStemCanvas';
 import { queryKeys } from '../hooks/queryKeys';
 import type { CandidateTestPayload } from '../types';

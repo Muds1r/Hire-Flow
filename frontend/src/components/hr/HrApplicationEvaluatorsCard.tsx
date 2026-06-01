@@ -1,7 +1,7 @@
 import type { Application } from '../../types';
 import type { ApplicationActionsResult } from '../../utils/applicationActions';
 import type { EvaluatorUser } from '../../features/jobs/hooks';
-import { getApiErrorMessage } from '../../services/http';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 type Props = {
   app: Application;

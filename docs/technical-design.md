@@ -2,7 +2,7 @@
 
 **Product name (UI):** Futurenostics — Hire Flow  
 **Architecture:** Monorepo with separate `frontend/` (SPA) and `backend/` (REST API).  
-**Last updated:** May 2026 — reflects current MVP (local CV storage, secured CV API, `types/` cross-app TS, HR CV/JD retry, evaluator queue search, no AI result summaries).
+**Last updated:** May 2026 — reflects current MVP (local CV storage, secured CV API, HR CV/JD retry, evaluator queue search, no AI result summaries).
 
 ---
 
@@ -63,7 +63,7 @@ flowchart TB
 
 | Layer | Responsibility |
 |-------|----------------|
-| **Frontend** | UI, routing, client state, API calls with JWT |
+| **Frontend** | UI, routing, client state, API calls with session cookie |
 | **Backend** | Business rules, authorization, file I/O, AI orchestration, grading |
 | **PostgreSQL** | Users, jobs, applications, tests, results, question bank, metadata |
 | **Local `uploads/`** | Original CV files (PDF/DOCX bytes) |
@@ -82,8 +82,8 @@ flowchart TB
 | **Vite** | 8 | Dev server, HMR, production bundle |
 | **React Router** | 7 | Client routing (`createBrowserRouter`, role layouts) |
 | **TanStack React Query** | 5 | Server state: fetch, cache, invalidate after mutations |
-| **Zustand** | 5 | Auth token + user persisted in browser (`authStore` + `persist`) |
-| **Axios** | 1.x | HTTP client; JWT attached via interceptor |
+| **Zustand** | 5 | Auth user in browser (`authStore` + `persist`; JWT not in JS) |
+| **Axios** | 1.x | HTTP client with `withCredentials` (httpOnly session cookie) |
 | **React Hook Form** | 7 | Login, register, job forms |
 | **Zod** | 4 | Form validation (with `@hookform/resolvers`) |
 | **Tailwind CSS** | 4 | Utility-first styling (`@tailwindcss/vite`) |
@@ -94,8 +94,9 @@ flowchart TB
 |------|---------|
 | `src/routes/AppRoutes.tsx` | All routes and role guards |
 | `src/routes/lazyPages.tsx` | Code-split route pages |
-| `src/api/client.ts` | Axios instance, `VITE_API_URL` |
-| `src/services/http.ts` | Re-export of API client + error helpers |
+| `src/api/client.ts` | Axios instance, `VITE_API_URL`, cookie credentials |
+| `src/utils/apiError.ts` | API error message helpers |
+| `src/features/auth/AuthBootstrap.tsx` | Restores session via `GET /auth/me` |
 | `src/features/` | Domain hooks (`jobs`, `applications`, `evaluators`, `assessment`) |
 | `src/pages/` | Route-level screens |
 | `src/components/` | Shared UI (HR pipeline, assessment panels, CV button) |
@@ -110,7 +111,8 @@ flowchart TB
 | **TypeScript** 5 | Server implementation language |
 | **Prisma** 5 | ORM, migrations, type-safe DB access |
 | **PostgreSQL** | Primary relational database |
-| **Passport + JWT** (`@nestjs/jwt`, `passport-jwt`) | Stateless auth; `Authorization: Bearer` |
+| **Passport + JWT** (`@nestjs/jwt`, `passport-jwt`) | JWT in httpOnly cookie (`hire_flow_access_token`); optional `Authorization: Bearer` for tools |
+| **cookie-parser** | Read session cookie on API requests |
 | **bcrypt** | Password hashing |
 | **class-validator / class-transformer** | DTO validation on incoming requests |
 | **Multer** (`memoryStorage`) | Parse multipart CV upload in memory before writing to disk |
@@ -163,23 +165,21 @@ AI-Test/
 │   ├── prisma/        # schema.prisma, migrations/, seed.ts
 │   ├── src/           # application source
 │   └── uploads/       # CV files (gitignored, created at runtime)
-├── types/             # Cross-app TypeScript (TestIntensityLevel + labels)
 └── docs/
     ├── technical-design.md   # this document
     └── end-to-end-workflow.md # short workflow summary
 ```
 
-### 4.1 Cross-app types (`types/`)
+### 4.1 Test intensity (`TestIntensityLevel`)
 
-| File | Purpose |
-|------|---------|
-| `test-intensity.ts` | `TestIntensityLevel` values, UI option labels/hints, `isTestIntensityLevel()` |
+| Location | Purpose |
+|----------|---------|
+| `backend/src/common/test-intensity.ts` | Enum values, `isTestIntensityLevel()` for API/grading |
+| `frontend/src/constants/testIntensity.ts` | Same values + UI option labels/hints |
 
-**Imports:** Frontend imports `../../../types/test-intensity` from `src/` (and re-exports via `constants/testIntensity.ts`). Backend copies the file into `src/generated/` on `npm run build` / `postinstall` (`scripts/sync-types.js`), then re-exports from `src/common/test-intensity.ts` (`rootDir: src` → `dist/main.js` for production).
+**Sync rule:** Prisma enum `TestIntensityLevel` in `schema.prisma` must match `TEST_INTENSITY_LEVELS` in both TS files.
 
-**Sync rule:** Prisma enum `TestIntensityLevel` in `schema.prisma` must match `types/test-intensity.ts` (`TEST_INTENSITY_LEVELS`).
-
-**Tests:** `types/test-intensity.test.ts` runs with `cd frontend && npm test` (Vitest includes `../types/**/*.test.ts`).
+**Tests:** `frontend/src/constants/testIntensity.test.ts` · `backend/src/common/test-intensity.spec.ts`
 
 ---
 
@@ -193,11 +193,12 @@ AI-Test/
 
 **Auth flow**
 
-1. `POST /api/auth/register` — candidates only; returns JWT + user.
-2. `POST /api/auth/login` — any role; returns JWT + user.
-3. `GET /api/auth/me` — current user (JWT required).
+1. `POST /api/auth/register` — candidates only; sets httpOnly cookie, returns `{ user }`.
+2. `POST /api/auth/login` — any role; sets httpOnly cookie, returns `{ user }`.
+3. `POST /api/auth/logout` — clears cookie.
+4. `GET /api/auth/me` — current user (cookie or Bearer JWT).
 
-Frontend stores JWT in Zustand; Axios sends `Authorization: Bearer <token>`. Routes use `RequireRole` for `/hr/*` and `/eval/*`.
+JWT lives in cookie `hire_flow_access_token` (`backend/src/auth/auth-cookie.ts`), not in `localStorage`. Frontend persists **user** only in Zustand; `AuthBootstrap` calls `/auth/me` on load. Dev: Vite proxies `/api` → `localhost:3000` so cookies are same-origin. Routes use `RequireRole` for `/hr/*` and `/eval/*`.
 
 **Seed users** (`prisma/seed.ts`): `hr@example.com`, `evaluator@example.com`, `mern@example.com`, `ai@example.com` — password `Password123!`.
 
@@ -250,7 +251,7 @@ Stored as JSON on `Job`:
 - **`assessmentSectionConfig`:** `[{ title, intensity }]` — canonical plan from evaluator.
 - **`assessmentSectionTitles`:** string[] — denormalized mirror for queries and fallbacks.
 
-**Intensity** (`TestIntensityLevel` from `types/test-intensity.ts`): `INTERN_ASSOCIATE` | `SOFTWARE_ENGINEER` | `SENIOR_DEVELOPER` — drives tier mix for bank fill and per-test draws.
+**Intensity** (`TestIntensityLevel`): `INTERN_ASSOCIATE` | `SOFTWARE_ENGINEER` | `SENIOR_DEVELOPER` — drives tier mix for bank fill and per-test draws.
 
 **Section limit:** Up to **10** skill/section titles per plan (enforced in UI and `submit-config` DTO `@ArrayMaxSize(10)`).
 
@@ -508,7 +509,7 @@ npm install
 npm run dev                # http://localhost:5173
 ```
 
-**Tests:** `cd frontend && npm test` (includes `types/`) · `cd backend && npm test`  
+**Tests:** `cd frontend && npm test` · `cd backend && npm test`  
 **Build:** `cd backend && npm run build` · `cd frontend && npm run build`
 
 ---

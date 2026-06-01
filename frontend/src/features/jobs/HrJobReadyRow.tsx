@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, getApiErrorMessage } from '../../services/http';
+import { api } from '../../api/client';
+import { getApiErrorMessage } from '../../utils/apiError';
 import type { Job } from '../../types';
 import { queryKeys } from '../../hooks/queryKeys';
 import { invalidateHrJobsQueries } from './invalidateHrJobs';

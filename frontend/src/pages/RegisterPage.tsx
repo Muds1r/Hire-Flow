@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AuthFormCard } from '../components/auth/AuthFormCard';
 import { useAuthMutation } from '../features/auth/useAuthMutation';
+import { getRegisterErrorMessage } from '../utils/authError';
 
 const schema = z.object({
   email: z.string().email(),
@@ -78,7 +79,7 @@ export function RegisterPage() {
             className="rounded-lg bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-700 ring-1 ring-red-200/80"
             role="alert"
           >
-            Could not register — try a different email.
+            {getRegisterErrorMessage(mutation.error)}
           </p>
         )}
         <button

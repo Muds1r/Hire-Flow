@@ -69,7 +69,7 @@ enum AssessmentBankPrepPhase {
 }
 
 /// Evaluator-selected difficulty profile per assessment section (set at publish).
-/// Values must match `types/test-intensity.ts` / `TEST_INTENSITY_LEVELS`.
+/// Values must match `TEST_INTENSITY_LEVELS` in `src/common/test-intensity.ts` and frontend `constants/testIntensity.ts`.
 enum TestIntensityLevel {
   INTERN_ASSOCIATE
   SOFTWARE_ENGINEER

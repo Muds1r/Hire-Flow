@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../services/http';
-import { getApiErrorMessageAsync } from '../../services/http';
+import { api } from '../../api/client';
+import { getApiErrorMessageAsync } from '../../utils/apiError';
 import { ModalShell } from '../ui/ModalShell';
 
 type Props = {

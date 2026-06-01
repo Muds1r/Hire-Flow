@@ -26,6 +26,8 @@ Recruitment & technical assessment API: NestJS, Prisma, PostgreSQL, OpenAI, loca
 6. Set `OPENAI_API_KEY` for CV/JD AI and question-bank MCQ generation.
 7. `npm run start:dev` → http://localhost:3000/api
 
+**Email (Mailhog):** `docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog` — set `SMTP_*` in `.env`, inbox at http://localhost:8025. Sends on register, test sent, reject, move to interview.
+
 **Seed logins:** `hr@example.com`, `evaluator@example.com`, password `Password123!`.
 
 **CV files:** written to `UPLOAD_DIR` (default `./uploads/`). Served only via `GET /api/applications/:id/cv` (JWT + role check).
@@ -35,7 +37,7 @@ Recruitment & technical assessment API: NestJS, Prisma, PostgreSQL, OpenAI, loca
 | Command | Purpose |
 |---------|---------|
 | `npm run start:dev` | Watch mode |
-| `npm run build` | Sync `types/` → `src/generated/`, then compile Nest (`dist/main.js`) |
+| `npm run build` | Compile Nest (`dist/main.js`) |
 | `npm test` | Jest unit tests |
 | `npm run db:seed` | Seed HR/evaluator users |
 | `npm run db:reset-candidates` | Dev utility to reset candidate data |

@@ -1,5 +1,5 @@
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { getApiErrorMessage } from '../services/http';
+import { getApiErrorMessage } from '../utils/apiError';
 import { LoadingState } from '../components/LoadingState';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuthStore } from '../store/authStore';

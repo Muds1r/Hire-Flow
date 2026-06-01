@@ -26,6 +26,7 @@ import {
   type JobSectionConfig,
 } from './job-section-config.util';
 import { TestIntensityLevel } from '../common/test-intensity';
+import { MailService } from '../mail/mail.service';
 
 type TestWithSections = Prisma.TestGetPayload<{
   include: {
@@ -75,6 +76,7 @@ export class TestsService {
   constructor(
     private prisma: PrismaService,
     private bank: QuestionBankService,
+    private mail: MailService,
   ) {}
 
   /** HR: (re)build draft assessment from job template + bank draws. */
@@ -232,7 +234,7 @@ export class TestsService {
         application: {
           include: {
             job: true,
-            candidate: { select: { email: true } },
+            candidate: { select: { email: true, name: true } },
           },
         },
         testSections: { include: { questions: true } },
@@ -268,6 +270,15 @@ export class TestsService {
         data: { status: ApplicationStatus.TEST_SENT },
       }),
     ]);
+
+    const candidate = test.application.candidate;
+    if (candidate?.email) {
+      this.mail.sendTestSent(
+        candidate.email,
+        test.application.job.title,
+        test.application.candidate.name,
+      );
+    }
 
     return updated[0];
   }

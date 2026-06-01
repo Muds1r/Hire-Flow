@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AuthFormCard } from '../components/auth/AuthFormCard';
 import { useAuthMutation } from '../features/auth/useAuthMutation';
+import { getLoginErrorMessage } from '../utils/authError';
 
 const schema = z.object({
   email: z.string().email(),
@@ -68,7 +69,7 @@ export function LoginPage() {
             className="rounded-lg bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-700 ring-1 ring-red-200/80"
             role="alert"
           >
-            Invalid email or password.
+            {getLoginErrorMessage(mutation.error)}
           </p>
         )}
         <button

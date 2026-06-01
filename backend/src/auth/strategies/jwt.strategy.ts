@@ -1,8 +1,11 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@prisma/client';
+import type { Request } from 'express';
 import { UsersService } from '../../users/users.service';
+import { AUTH_COOKIE_NAME } from '../auth-cookie';
 
 export type JwtPayload = { sub: string; role: string; email: string };
 
@@ -13,18 +16,29 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     config: ConfigService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: Request) => {
+          const cookies = req?.cookies as Record<string, string> | undefined;
+          return cookies?.[AUTH_COOKIE_NAME] ?? null;
+        },
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
   async validate(payload: JwtPayload) {
-    await this.users.findById(payload.sub);
+    const user = await this.users.findById(payload.sub);
+    if (user.isActive === false) {
+      throw new UnauthorizedException(
+        'This account has been deactivated. Contact your HR administrator.',
+      );
+    }
     return {
-      userId: payload.sub,
-      role: payload.role,
-      email: payload.email,
+      userId: user.id,
+      role: user.role as UserRole,
+      email: user.email,
     };
   }
 }

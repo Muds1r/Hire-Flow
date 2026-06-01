@@ -5,7 +5,7 @@ import { EvaluatorFormModal } from '../components/hr/EvaluatorFormModal';
 import { EvaluatorListRow } from '../components/hr/EvaluatorListRow';
 import { useHrEvaluatorMutations, useHrEvaluators } from '../features/evaluators/hooks';
 import type { HrEvaluator } from '../types/evaluator';
-import { getApiErrorMessage } from '../services/http';
+import { getApiErrorMessage } from '../utils/apiError';
 
 export function HrEvaluatorsPage() {
   const [modal, setModal] = useState<'create' | 'edit' | null>(null);

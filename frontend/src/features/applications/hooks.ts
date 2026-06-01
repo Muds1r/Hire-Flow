@@ -1,5 +1,5 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
-import { api } from '../../services/http';
+import { api } from '../../api/client';
 import type { Application, Paginated } from '../../types';
 import { queryKeys } from '../../hooks/queryKeys';
 import { DEFAULT_PAGE_SIZE } from '../../constants/pagination';

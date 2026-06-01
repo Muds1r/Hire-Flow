@@ -24,16 +24,16 @@ npm run start:dev
 cd frontend && npm install && npm run dev
 ```
 
-- API: http://localhost:3000/api  
+- API: http://localhost:3000/api (frontend dev proxies `/api` → backend for httpOnly cookies)  
 - App: http://localhost:5173  
 - Seed: `hr@example.com` / `evaluator@example.com` — password `Password123!`
+- Email (optional): run [Mailhog](https://github.com/mailhog/MailHog), set `SMTP_HOST` / `SMTP_PORT` in `backend/.env` (see `.env.example`), view mail at http://localhost:8025
 
 ## Project structure
 
 ```
 frontend/   React + Vite + TanStack Query
 backend/    NestJS + Prisma + PostgreSQL
-types/      Cross-app TypeScript (e.g. test intensity enums + labels)
 docs/       Technical design & workflow
 ```
 

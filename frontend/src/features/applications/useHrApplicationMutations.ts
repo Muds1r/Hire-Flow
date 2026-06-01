@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../services/http';
+import { api } from '../../api/client';
 import { queryKeys } from '../../hooks/queryKeys';
 import { invalidateHrApplicationCaches } from './hooks';
 

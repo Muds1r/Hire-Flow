@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { getApiErrorMessage } from '../services/http';
+import { getApiErrorMessage } from '../utils/apiError';
 import { getApplicationActions } from '../utils/applicationActions';
 import { useHrApplicationsByJob } from '../features/applications/hooks';
 import { useJobDetail } from '../features/jobs/hooks';

@@ -4,7 +4,7 @@ import { HrJobListRow } from '../../features/jobs/HrJobListRow';
 import { CollapsedSection } from '../ui/CollapsedSection';
 import { ListPagination } from '../ui/ListPagination';
 import { ErrorCard } from '../ui/ErrorCard';
-import { getApiErrorMessage } from '../../services/http';
+import { getApiErrorMessage } from '../../utils/apiError';
 import {
   useServerPageState,
   useServerPaginationSync,

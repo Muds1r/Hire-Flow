@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ModalShell } from '../ui/ModalShell';
-import { getApiErrorMessage } from '../../services/http';
+import { getApiErrorMessage } from '../../utils/apiError';
 import type { HrEvaluator } from '../../types/evaluator';
 
 const createSchema = z.object({

@@ -4,14 +4,22 @@ import { NavLink } from '../components/NavLink';
 import { SiteLogo } from '../components/SiteLogo';
 
 export function AppLayout() {
-  const { token, user, logout } = useAuthStore();
+  const { user, ready, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  if (!token) {
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-500">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const initial = (user?.email?.[0] ?? '?').toUpperCase();
+  const initial = (user.email?.[0] ?? '?').toUpperCase();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-surface via-white to-mint-light/50 text-navy">
@@ -27,31 +35,30 @@ export function AppLayout() {
             </span>
           </Link>
           <nav className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
-            {user?.role === 'CANDIDATE' && (
+            {user.role === 'CANDIDATE' && (
               <>
                 <NavLink to="/jobs">Jobs</NavLink>
                 <NavLink to="/applications">Applications</NavLink>
               </>
             )}
-            {user?.role === 'HR' && <NavLink to="/hr/pipeline">HR desk</NavLink>}
-            {user?.role === 'EVALUATOR' && <NavLink to="/eval">Evaluations</NavLink>}
+            {user.role === 'HR' && <NavLink to="/hr/pipeline">HR desk</NavLink>}
+            {user.role === 'EVALUATOR' && <NavLink to="/eval">Evaluations</NavLink>}
             <span className="mx-1 hidden h-6 w-px bg-slate-200 sm:inline" aria-hidden />
             <div className="flex items-center gap-2 pl-1">
               <span
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 ring-1 ring-slate-200/80"
-                title={user?.email ?? ''}
+                title={user.email ?? ''}
               >
                 {initial}
               </span>
               <span className="hidden max-w-[140px] truncate text-xs text-slate-500 sm:inline">
-                {user?.email}
+                {user.email}
               </span>
               <button
                 type="button"
                 className="btn-secondary !py-1.5 !px-3 !text-xs"
                 onClick={() => {
-                  logout();
-                  navigate('/login');
+                  void logout().then(() => navigate('/login'));
                 }}
               >
                 Log out

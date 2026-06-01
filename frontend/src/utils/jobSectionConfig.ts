@@ -1,4 +1,4 @@
-import { isTestIntensityLevel } from '../../../types/test-intensity';
+import { isTestIntensityLevel } from '../constants/testIntensity';
 import type { JobSectionConfig, TestIntensityLevel } from '../types';
 
 export function parseJobAssessmentSectionConfig(

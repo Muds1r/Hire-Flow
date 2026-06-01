@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { getApiErrorMessage } from '../services/http';
+import { getApiErrorMessage } from '../utils/apiError';
 import { QueryPanel } from '../components/ui/QueryPanel';
 import { CollapsedSection } from '../components/ui/CollapsedSection';
 import { CvMatchSummary } from '../components/hr/CvMatchSummary';

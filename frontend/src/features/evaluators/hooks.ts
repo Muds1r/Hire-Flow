@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../services/http';
+import { api } from '../../api/client';
 import type { HrEvaluator } from '../../types/evaluator';
 import { queryKeys } from '../../hooks/queryKeys';
 

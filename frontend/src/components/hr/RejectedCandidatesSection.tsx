@@ -3,7 +3,7 @@ import { CollapsedSection } from '../ui/CollapsedSection';
 import { ErrorCard } from '../ui/ErrorCard';
 import { useHrRejectedApplications } from '../../features/applications/hooks';
 import { DEFAULT_PAGE_SIZE } from '../../constants/pagination';
-import { getApiErrorMessage } from '../../services/http';
+import { getApiErrorMessage } from '../../utils/apiError';
 import {
   useServerPageState,
   useServerPaginationSync,
